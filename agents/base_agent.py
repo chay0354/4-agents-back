@@ -66,43 +66,45 @@ class BaseAgent(ABC):
                     except Exception as e:
                         print(f"{self.name}: Could not dump response: {e}")
                     
-                    # Method 1: Try response.output.content[0].text (most common structure)
+                    # Method 1: Try response.output[0].content[0].text (output is a list!)
                     if hasattr(response, 'output') and response.output:
                         print(f"{self.name}: Found 'output' attribute, type: {type(response.output)}")
                         output = response.output
                         
-                        # Check if output has items (for streaming responses)
-                        if hasattr(output, 'items'):
-                            print(f"{self.name}: Found 'items' in output, trying to get text from items")
-                            try:
-                                items = list(output.items)
-                                if items and len(items) > 0:
-                                    for item in items:
-                                        if hasattr(item, 'text') and item.text:
-                                            result = item.text
-                                            print(f"{self.name}: Found text in output.items[].text")
-                                            break
-                                        elif hasattr(item, 'content') and item.content:
-                                            if hasattr(item.content, 'text'):
-                                                result = item.content.text
-                                                print(f"{self.name}: Found text in output.items[].content.text")
-                                                break
-                            except Exception as e:
-                                print(f"{self.name}: Error accessing items: {e}")
+                        # output is a LIST, not an object! Structure: output[0].content[0].text
+                        if isinstance(output, list) and len(output) > 0:
+                            print(f"{self.name}: output is a list with {len(output)} items")
+                            first_output = output[0]
+                            print(f"{self.name}: First output item type: {type(first_output)}, attributes: {[attr for attr in dir(first_output) if not attr.startswith('_')]}")
+                            
+                            # Try to get content from first output item
+                            if hasattr(first_output, 'content') and first_output.content:
+                                print(f"{self.name}: Found 'content' in first_output, type: {type(first_output.content)}")
+                                if isinstance(first_output.content, list) and len(first_output.content) > 0:
+                                    first_content = first_output.content[0]
+                                    print(f"{self.name}: First content item type: {type(first_content)}, attributes: {[attr for attr in dir(first_content) if not attr.startswith('_')]}")
+                                    if hasattr(first_content, 'text'):
+                                        result = first_content.text
+                                        print(f"{self.name}: Found text in output[0].content[0].text: {result[:100] if result else 'None'}...")
+                                    elif isinstance(first_content, dict) and 'text' in first_content:
+                                        result = first_content['text']
+                                        print(f"{self.name}: Found text in output[0].content[0] dict")
+                            elif hasattr(first_output, 'text'):
+                                result = first_output.text
+                                print(f"{self.name}: Found text in output[0].text")
                         
-                        # Try content list
-                        if not result and hasattr(output, 'content') and output.content:
-                            print(f"{self.name}: Found 'content' in output, type: {type(output.content)}")
+                        # Legacy: if output is an object (not a list)
+                        elif hasattr(output, 'content') and output.content:
+                            print(f"{self.name}: Found 'content' in output (object), type: {type(output.content)}")
                             if isinstance(output.content, list) and len(output.content) > 0:
                                 first_item = output.content[0]
-                                print(f"{self.name}: First content item type: {type(first_item)}, attributes: {[attr for attr in dir(first_item) if not attr.startswith('_')]}")
                                 if hasattr(first_item, 'text'):
                                     result = first_item.text
-                                    print(f"{self.name}: Found text in first_item.text: {result[:100] if result else 'None'}...")
+                                    print(f"{self.name}: Found text in output.content[0].text")
                                 elif isinstance(first_item, dict) and 'text' in first_item:
                                     result = first_item['text']
-                                    print(f"{self.name}: Found text in first_item dict")
-                        elif not result and hasattr(output, 'text'):
+                                    print(f"{self.name}: Found text in output.content[0] dict")
+                        elif hasattr(output, 'text'):
                             result = output.text
                             print(f"{self.name}: Found text in output.text")
                     
