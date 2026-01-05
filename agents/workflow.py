@@ -27,8 +27,15 @@ class AgentWorkflow:
         # Always run only 1 iteration
         iteration = 1
         context["iteration"] = iteration
+        
+        # Send immediate start message
+        yield {
+            "agent": "system",
+            "status": "starting",
+            "message": "Starting analysis..."
+        }
             
-        # Stage 1: Analysis Agent
+        # Stage 1: Analysis Agent - send thinking message immediately
         yield {
             "agent": "analysis",
             "stage": 1,

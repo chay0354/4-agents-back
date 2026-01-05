@@ -74,7 +74,15 @@ async def analyze_problem(request: ProblemRequest):
             }
             yield f"data: {json.dumps(error_update)}\n\n"
     
-    return StreamingResponse(generate(), media_type="text/event-stream")
+    return StreamingResponse(
+        generate(), 
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"  # Disable nginx buffering
+        }
+    )
 
 @app.get("/analyses")
 async def get_analyses():
