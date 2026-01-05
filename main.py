@@ -14,11 +14,11 @@ load_dotenv()
 
 app = FastAPI(title="4-Agents MOP System", version="1.0.0")
 
-# CORS middleware
+# CORS middleware - allow all origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173"],
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,  # Must be False when allow_origins=["*"]
     allow_methods=["*"],
     allow_headers=["*"],
 )
