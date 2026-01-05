@@ -53,8 +53,10 @@ async def analyze_problem(request: ProblemRequest):
                 if update.get("status") == "complete" and "response" in update:
                     all_responses[update["agent"]] = update["response"]
                 
-                # Stream the update
-                yield f"data: {json.dumps(update)}\n\n"
+                # Stream the update immediately - each agent completes before next starts
+                update_json = json.dumps(update)
+                print(f"Streaming update: agent={update.get('agent')}, status={update.get('status')}")
+                yield f"data: {update_json}\n\n"
             
             # Save to database
             result = {

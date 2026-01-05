@@ -43,7 +43,10 @@ class AgentWorkflow:
             "status": "thinking",
             "message": "Analyzing the problem and breaking it down into sub-problems..."
         }
+        # Wait for analysis to complete before proceeding
+        print("Starting Analysis Agent...")
         analysis = await self.analysis_agent.process(context)
+        print(f"Analysis Agent completed (response length: {len(analysis) if analysis else 0})")
         context["analysis"] = analysis
         context["all_responses"]["analysis"] = analysis
         yield {
@@ -54,7 +57,7 @@ class AgentWorkflow:
             "response": analysis
         }
         
-        # Stage 2: Research Agent
+        # Stage 2: Research Agent - only starts after analysis is complete
         yield {
             "agent": "research",
             "stage": 2,
@@ -62,7 +65,10 @@ class AgentWorkflow:
             "status": "thinking",
             "message": "Gathering relevant knowledge, existing information, and professional assumptions..."
         }
+        # Wait for research to complete before proceeding
+        print("Starting Research Agent...")
         research = await self.research_agent.process(context)
+        print(f"Research Agent completed (response length: {len(research) if research else 0})")
         context["research"] = research
         context["all_responses"]["research"] = research
         yield {
@@ -73,7 +79,7 @@ class AgentWorkflow:
             "response": research
         }
         
-        # Stage 3: Critic Agent
+        # Stage 3: Critic Agent - only starts after research is complete
         yield {
             "agent": "critic",
             "stage": 3,
@@ -81,7 +87,10 @@ class AgentWorkflow:
             "status": "thinking",
             "message": "Critically evaluating the solution, identifying weaknesses and contradictions..."
         }
+        # Wait for critic to complete before proceeding
+        print("Starting Critic Agent...")
         critique = await self.critic_agent.process(context)
+        print(f"Critic Agent completed (response length: {len(critique) if critique else 0})")
         context["critique"] = critique
         context["all_responses"]["critique"] = critique
         yield {
@@ -92,7 +101,7 @@ class AgentWorkflow:
             "response": critique
         }
         
-        # Stage 4: Monitor Agent
+        # Stage 4: Monitor Agent - only starts after critic is complete
         yield {
             "agent": "monitor",
             "stage": 4,
@@ -100,7 +109,10 @@ class AgentWorkflow:
             "status": "thinking",
             "message": "Supervising the thinking process..."
         }
+        # Wait for monitor to complete before proceeding
+        print("Starting Monitor Agent...")
         monitor_response = await self.monitor_agent.process(context)
+        print(f"Monitor Agent completed (response length: {len(monitor_response) if monitor_response else 0})")
         context["monitor"] = monitor_response
         context["all_responses"]["monitor"] = monitor_response
         yield {
@@ -111,14 +123,17 @@ class AgentWorkflow:
             "response": monitor_response
         }
         
-        # Generate final summary using AI
+        # Generate final summary using AI - only starts after monitor is complete
         yield {
             "agent": "summary",
             "stage": 5,
             "status": "thinking",
             "message": "Summarizing all agent responses into final answer..."
         }
+        # Wait for summary to complete
+        print("Starting Summary generation...")
         final_summary = await self._generate_ai_summary(context)
+        print(f"Summary completed (response length: {len(final_summary) if final_summary else 0})")
         yield {
             "agent": "summary",
             "stage": 5,
