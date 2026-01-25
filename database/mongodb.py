@@ -1,7 +1,7 @@
 from pymongo import MongoClient
 from typing import Optional, Dict, List
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from bson import ObjectId
 from dotenv import load_dotenv
 
@@ -51,7 +51,7 @@ class MongoDBClient:
         
         try:
             collection = self.db.analyses
-            analysis_data["created_at"] = datetime.utcnow()
+            analysis_data["created_at"] = datetime.now(timezone.utc)
             result = collection.insert_one(analysis_data)
             return str(result.inserted_id)
         except Exception as e:
