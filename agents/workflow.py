@@ -4,6 +4,8 @@ from agents.critic_agent import CriticAgent
 from agents.monitor_agent import MonitorAgent
 from typing import Dict, AsyncGenerator
 from datetime import datetime
+import httpx
+import os
 
 class AgentWorkflow:
     def __init__(self, db_client=None):
@@ -12,6 +14,24 @@ class AgentWorkflow:
         self.critic_agent = CriticAgent()
         self.monitor_agent = MonitorAgent()
         self.db_client = db_client
+        # Get backend URL from environment or default to localhost
+        self.backend_url = os.getenv("BACKEND_URL", "http://localhost:8000")
+    
+    async def _check_kernel(self) -> bool:
+        """
+        Check kernel endpoint to see if analysis should continue
+        Returns True if should continue, False if should stop
+        """
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(f"{self.backend_url}/kernel", timeout=5.0)
+                if response.status_code == 200:
+                    data = response.json()
+                    return data.get("status") == "ok"
+                return True  # Default to continue on error
+        except Exception as e:
+            print(f"Error checking kernel: {e}")
+            return True  # Default to continue on error
     
     async def process_problem_stream(self, problem: str) -> AsyncGenerator[Dict, None]:
         """
@@ -47,6 +67,19 @@ class AgentWorkflow:
         print("Starting Analysis Agent...")
         analysis = await self.analysis_agent.process(context)
         print(f"Analysis Agent completed (response length: {len(analysis) if analysis else 0})")
+        
+        # Check kernel IMMEDIATELY after agent completes - stop right away if requested
+        should_continue = await self._check_kernel()
+        if not should_continue:
+            yield {
+                "agent": "system",
+                "status": "stopped",
+                "message": f"Analysis stopped by kernel after Analysis Agent",
+                "stopped_agent": "analysis"
+            }
+            return
+        
+        # Only yield agent response if we're continuing
         context["analysis"] = analysis
         context["all_responses"]["analysis"] = analysis
         yield {
@@ -69,6 +102,19 @@ class AgentWorkflow:
         print("Starting Research Agent...")
         research = await self.research_agent.process(context)
         print(f"Research Agent completed (response length: {len(research) if research else 0})")
+        
+        # Check kernel IMMEDIATELY after agent completes - stop right away if requested
+        should_continue = await self._check_kernel()
+        if not should_continue:
+            yield {
+                "agent": "system",
+                "status": "stopped",
+                "message": f"Analysis stopped by kernel after {self.research_agent.name}",
+                "stopped_agent": "research"
+            }
+            return
+        
+        # Only yield agent response if we're continuing
         context["research"] = research
         context["all_responses"]["research"] = research
         yield {
@@ -91,6 +137,19 @@ class AgentWorkflow:
         print("Starting Critic Agent...")
         critique = await self.critic_agent.process(context)
         print(f"Critic Agent completed (response length: {len(critique) if critique else 0})")
+        
+        # Check kernel IMMEDIATELY after agent completes - stop right away if requested
+        should_continue = await self._check_kernel()
+        if not should_continue:
+            yield {
+                "agent": "system",
+                "status": "stopped",
+                "message": f"Analysis stopped by kernel after Critic Agent",
+                "stopped_agent": "critic"
+            }
+            return
+        
+        # Only yield agent response if we're continuing
         context["critique"] = critique
         context["all_responses"]["critique"] = critique
         yield {
@@ -113,6 +172,19 @@ class AgentWorkflow:
         print("Starting Monitor Agent...")
         monitor_response = await self.monitor_agent.process(context)
         print(f"Monitor Agent completed (response length: {len(monitor_response) if monitor_response else 0})")
+        
+        # Check kernel IMMEDIATELY after agent completes - stop right away if requested
+        should_continue = await self._check_kernel()
+        if not should_continue:
+            yield {
+                "agent": "system",
+                "status": "stopped",
+                "message": f"Analysis stopped by kernel after Monitor Agent",
+                "stopped_agent": "monitor"
+            }
+            return
+        
+        # Only yield agent response if we're continuing
         context["monitor"] = monitor_response
         context["all_responses"]["monitor"] = monitor_response
         yield {
@@ -134,6 +206,19 @@ class AgentWorkflow:
         print("Starting Summary generation...")
         final_summary = await self._generate_ai_summary(context)
         print(f"Summary completed (response length: {len(final_summary) if final_summary else 0})")
+        
+        # Check kernel IMMEDIATELY after summary completes - stop right away if requested
+        should_continue = await self._check_kernel()
+        if not should_continue:
+            yield {
+                "agent": "system",
+                "status": "stopped",
+                "message": f"Analysis stopped by kernel after Summary",
+                "stopped_agent": "summary"
+            }
+            return
+        
+        # Only yield summary if we're continuing
         yield {
             "agent": "summary",
             "stage": 5,
