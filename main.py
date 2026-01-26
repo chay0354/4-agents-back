@@ -2,12 +2,13 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, Response
 from pydantic import BaseModel
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any
 import os
 import json
 from datetime import datetime, timezone
 from dotenv import load_dotenv
 from agents.workflow import AgentWorkflow
+from agents.ratings_agent import RatingsAgent
 from database.mongodb import MongoDBClient
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
@@ -40,6 +41,10 @@ kernel_stop_history: List[Dict] = []
 
 class ProblemRequest(BaseModel):
     problem: str
+
+class AgentRequest(BaseModel):
+    problem: str
+    context: Dict[str, Any] = {}  # Previous agent responses
 
 @app.get("/")
 async def root():
@@ -92,6 +97,216 @@ async def kernel_reset():
     kernel_stop_history.append(reset_event)
     return {"status": "reset", "message": "Hard stop reset"}
 
+@app.post("/agent/analysis")
+async def run_analysis_agent(request: AgentRequest):
+    """
+    Run Analysis Agent - checks kernel permission first
+    """
+    global kernel_hard_stop, current_agent
+    current_agent = "analysis"
+    
+    # Check kernel permission before starting
+    if kernel_hard_stop:
+        return {
+            "status": "stopped",
+            "agent": "analysis",
+            "message": "Analysis stopped by kernel",
+            "kernel_decision": "L"
+        }
+    
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] 🟢 STARTING: Analysis Agent")
+    workflow = AgentWorkflow(db_client)
+    analysis_agent = workflow.analysis_agent
+    
+    context = {"problem": request.problem, **request.context}
+    response = await analysis_agent.process(context)
+    
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] ✅ FINISHED: Analysis Agent (response length: {len(response) if response else 0})")
+    
+    return {
+        "status": "complete",
+        "agent": "analysis",
+        "response": response,
+        "kernel_decision": None
+    }
+
+@app.post("/agent/research")
+async def run_research_agent(request: AgentRequest):
+    """
+    Run Research Agent - checks kernel permission first
+    """
+    global kernel_hard_stop, current_agent
+    current_agent = "research"
+    
+    # Check kernel permission before starting
+    if kernel_hard_stop:
+        return {
+            "status": "stopped",
+            "agent": "research",
+            "message": "Analysis stopped by kernel",
+            "kernel_decision": "L"
+        }
+    
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] 🟢 STARTING: Research Agent")
+    workflow = AgentWorkflow(db_client)
+    research_agent = workflow.research_agent
+    
+    context = {"problem": request.problem, **request.context}
+    response = await research_agent.process(context)
+    
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] ✅ FINISHED: Research Agent (response length: {len(response) if response else 0})")
+    
+    return {
+        "status": "complete",
+        "agent": "research",
+        "response": response,
+        "kernel_decision": None
+    }
+
+@app.post("/agent/critic")
+async def run_critic_agent(request: AgentRequest):
+    """
+    Run Critic Agent - checks kernel permission first
+    """
+    global kernel_hard_stop, current_agent
+    current_agent = "critic"
+    
+    # Check kernel permission before starting
+    if kernel_hard_stop:
+        return {
+            "status": "stopped",
+            "agent": "critic",
+            "message": "Analysis stopped by kernel",
+            "kernel_decision": "L"
+        }
+    
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] 🟢 STARTING: Critic Agent")
+    workflow = AgentWorkflow(db_client)
+    critic_agent = workflow.critic_agent
+    
+    context = {"problem": request.problem, **request.context}
+    response = await critic_agent.process(context)
+    
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] ✅ FINISHED: Critic Agent (response length: {len(response) if response else 0})")
+    
+    return {
+        "status": "complete",
+        "agent": "critic",
+        "response": response,
+        "kernel_decision": None
+    }
+
+@app.post("/agent/monitor")
+async def run_monitor_agent(request: AgentRequest):
+    """
+    Run Monitor Agent - checks kernel permission first
+    """
+    global kernel_hard_stop, current_agent
+    current_agent = "monitor"
+    
+    # Check kernel permission before starting
+    if kernel_hard_stop:
+        return {
+            "status": "stopped",
+            "agent": "monitor",
+            "message": "Analysis stopped by kernel",
+            "kernel_decision": "L"
+        }
+    
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] 🟢 STARTING: Monitor Agent")
+    workflow = AgentWorkflow(db_client)
+    monitor_agent = workflow.monitor_agent
+    
+    context = {"problem": request.problem, **request.context}
+    response = await monitor_agent.process(context)
+    
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] ✅ FINISHED: Monitor Agent (response length: {len(response) if response else 0})")
+    
+    return {
+        "status": "complete",
+        "agent": "monitor",
+        "response": response,
+        "kernel_decision": None
+    }
+
+@app.post("/agent/ratings")
+async def run_ratings_agent(request: AgentRequest):
+    """
+    Run Final Ratings Agent - rates all 4 agents based on their performance
+    """
+    global kernel_hard_stop, current_agent
+    current_agent = "ratings"
+    
+    # Check kernel permission before starting
+    if kernel_hard_stop:
+        return {
+            "status": "stopped",
+            "agent": "ratings",
+            "message": "Analysis stopped by kernel",
+            "kernel_decision": "L"
+        }
+    
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] 🟢 STARTING: Final Ratings Agent")
+    ratings_agent = RatingsAgent()
+    
+    context = {
+        "problem": request.problem,
+        "analysis": request.context.get("analysis", ""),
+        "research": request.context.get("research", ""),
+        "critique": request.context.get("critique", ""),
+        "monitor": request.context.get("monitor", ""),
+        **request.context
+    }
+    response = await ratings_agent.process(context)
+    
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] ✅ FINISHED: Final Ratings Agent (response length: {len(response) if response else 0})")
+    
+    return {
+        "status": "complete",
+        "agent": "ratings",
+        "response": response,
+        "kernel_decision": None
+    }
+
+@app.post("/agent/summary")
+async def run_summary(request: AgentRequest):
+    """
+    Generate final summary - checks kernel permission first
+    Includes ratings in the summary context
+    """
+    global kernel_hard_stop, current_agent
+    current_agent = "summary"
+    
+    # Check kernel permission before starting
+    if kernel_hard_stop:
+        return {
+            "status": "stopped",
+            "agent": "summary",
+            "message": "Analysis stopped by kernel",
+            "kernel_decision": "L"
+        }
+    
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] 🟢 STARTING: Summary Agent")
+    workflow = AgentWorkflow(db_client)
+    
+    # Include ratings in all_responses for the summary
+    all_responses = request.context.get("all_responses", {})
+    if "ratings" in request.context:
+        all_responses["ratings"] = request.context["ratings"]
+    
+    context = {"problem": request.problem, "all_responses": all_responses, **request.context}
+    final_summary = await workflow._generate_ai_summary(context)
+    
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] ✅ FINISHED: Summary Agent (response length: {len(final_summary) if final_summary else 0})")
+    
+    return {
+        "status": "complete",
+        "agent": "summary",
+        "response": final_summary,
+        "done": True,
+        "kernel_decision": "N"
+    }
+
 @app.post("/analyze")
 async def analyze_problem(request: ProblemRequest):
     """
@@ -105,7 +320,11 @@ async def analyze_problem(request: ProblemRequest):
             kernel_hard_stop = False
             current_agent = None
             
-            workflow = AgentWorkflow(db_client)
+            # Pass kernel check function directly to avoid HTTP requests in production
+            def check_kernel():
+                return kernel_hard_stop
+            
+            workflow = AgentWorkflow(db_client, kernel_check_func=check_kernel)
             all_responses = {}
             final_kernel_decision = None  # Track final kernel decision
             
@@ -133,7 +352,20 @@ async def analyze_problem(request: ProblemRequest):
                 
                 # Stream the update immediately - each agent completes before next starts
                 update_json = json.dumps(update)
-                print(f"Streaming update: agent={update.get('agent')}, status={update.get('status')}, kernel_decision={update.get('kernel_decision')}")
+                agent_name = update.get('agent', 'unknown')
+                status = update.get('status', 'unknown')
+                timestamp = datetime.now().strftime('%H:%M:%S')
+                
+                # Enhanced logging for agent status changes
+                if status == 'thinking' and agent_name != 'system':
+                    agent_display = agent_name.capitalize() + ' Agent'
+                    print(f"[{timestamp}] 🟢 BACKEND: {agent_display} STARTING - streaming to frontend")
+                elif status == 'complete' and agent_name != 'system':
+                    agent_display = agent_name.capitalize() + ' Agent'
+                    response_len = len(update.get('response', '')) if update.get('response') else 0
+                    print(f"[{timestamp}] ✅ BACKEND: {agent_display} FINISHED - streaming response ({response_len} chars) to frontend")
+                
+                print(f"Streaming update: agent={agent_name}, status={status}, kernel_decision={update.get('kernel_decision')}")
                 yield f"data: {update_json}\n\n"
             
             # Determine final kernel decision if not set (defaults to "N" if completed successfully)
