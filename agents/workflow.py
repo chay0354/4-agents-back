@@ -51,7 +51,8 @@ class AgentWorkflow:
         yield {
             "agent": "system",
             "status": "starting",
-            "message": "Starting analysis..."
+            "message": "Starting analysis...",
+            "kernel_decision": None  # Not determined yet
         }
             
         # Stage 1: Analysis Agent - send thinking message immediately
@@ -60,7 +61,8 @@ class AgentWorkflow:
             "stage": 1,
             "iteration": iteration,
             "status": "thinking",
-            "message": "Analyzing the problem and breaking it down into sub-problems..."
+            "message": "Analyzing the problem and breaking it down into sub-problems...",
+            "kernel_decision": None  # Not determined yet
         }
         # Wait for analysis to complete before proceeding
         print("Starting Analysis Agent...")
@@ -74,7 +76,8 @@ class AgentWorkflow:
                 "agent": "system",
                 "status": "stopped",
                 "message": f"Analysis stopped by kernel after Analysis Agent",
-                "stopped_agent": "analysis"
+                "stopped_agent": "analysis",
+                "kernel_decision": "L"  # L = Limited/Stopped by kernel
             }
             return
         
@@ -86,7 +89,8 @@ class AgentWorkflow:
             "stage": 1,
             "iteration": iteration,
             "status": "complete",
-            "response": analysis
+            "response": analysis,
+            "kernel_decision": None  # Still in progress, not final
         }
         
         # Stage 2: Research Agent - only starts after analysis is complete
@@ -95,7 +99,8 @@ class AgentWorkflow:
             "stage": 2,
             "iteration": iteration,
             "status": "thinking",
-            "message": "Gathering relevant knowledge, existing information, and professional assumptions..."
+            "message": "Gathering relevant knowledge, existing information, and professional assumptions...",
+            "kernel_decision": None  # Still in progress
         }
         # Wait for research to complete before proceeding
         print("Starting Research Agent...")
@@ -109,7 +114,8 @@ class AgentWorkflow:
                 "agent": "system",
                 "status": "stopped",
                 "message": f"Analysis stopped by kernel after {self.research_agent.name}",
-                "stopped_agent": "research"
+                "stopped_agent": "research",
+                "kernel_decision": "L"  # L = Limited/Stopped by kernel
             }
             return
         
@@ -121,7 +127,8 @@ class AgentWorkflow:
             "stage": 2,
             "iteration": iteration,
             "status": "complete",
-            "response": research
+            "response": research,
+            "kernel_decision": None  # Still in progress
         }
         
         # Stage 3: Critic Agent - only starts after research is complete
@@ -130,7 +137,8 @@ class AgentWorkflow:
             "stage": 3,
             "iteration": iteration,
             "status": "thinking",
-            "message": "Critically evaluating the solution, identifying weaknesses and contradictions..."
+            "message": "Critically evaluating the solution, identifying weaknesses and contradictions...",
+            "kernel_decision": None  # Still in progress
         }
         # Wait for critic to complete before proceeding
         print("Starting Critic Agent...")
@@ -144,7 +152,8 @@ class AgentWorkflow:
                 "agent": "system",
                 "status": "stopped",
                 "message": f"Analysis stopped by kernel after Critic Agent",
-                "stopped_agent": "critic"
+                "stopped_agent": "critic",
+                "kernel_decision": "L"  # L = Limited/Stopped by kernel
             }
             return
         
@@ -156,7 +165,8 @@ class AgentWorkflow:
             "stage": 3,
             "iteration": iteration,
             "status": "complete",
-            "response": critique
+            "response": critique,
+            "kernel_decision": None  # Still in progress
         }
         
         # Stage 4: Monitor Agent - only starts after critic is complete
@@ -165,7 +175,8 @@ class AgentWorkflow:
             "stage": 4,
             "iteration": iteration,
             "status": "thinking",
-            "message": "Supervising the thinking process..."
+            "message": "Supervising the thinking process...",
+            "kernel_decision": None  # Still in progress
         }
         # Wait for monitor to complete before proceeding
         print("Starting Monitor Agent...")
@@ -179,7 +190,8 @@ class AgentWorkflow:
                 "agent": "system",
                 "status": "stopped",
                 "message": f"Analysis stopped by kernel after Monitor Agent",
-                "stopped_agent": "monitor"
+                "stopped_agent": "monitor",
+                "kernel_decision": "L"  # L = Limited/Stopped by kernel
             }
             return
         
@@ -191,7 +203,8 @@ class AgentWorkflow:
             "stage": 4,
             "iteration": iteration,
             "status": "complete",
-            "response": monitor_response
+            "response": monitor_response,
+            "kernel_decision": None  # Still in progress
         }
         
         # Generate final summary using AI - only starts after monitor is complete
@@ -199,7 +212,8 @@ class AgentWorkflow:
             "agent": "summary",
             "stage": 5,
             "status": "thinking",
-            "message": "Summarizing all agent responses into final answer..."
+            "message": "Summarizing all agent responses into final answer...",
+            "kernel_decision": None  # Still in progress
         }
         # Wait for summary to complete
         print("Starting Summary generation...")
@@ -213,17 +227,19 @@ class AgentWorkflow:
                 "agent": "system",
                 "status": "stopped",
                 "message": f"Analysis stopped by kernel after Summary",
-                "stopped_agent": "summary"
+                "stopped_agent": "summary",
+                "kernel_decision": "L"  # L = Limited/Stopped by kernel
             }
             return
         
-        # Only yield summary if we're continuing
+        # Only yield summary if we're continuing - this is the final successful completion
         yield {
             "agent": "summary",
             "stage": 5,
             "status": "complete",
             "response": final_summary,
-            "done": True
+            "done": True,
+            "kernel_decision": "N"  # N = Normal completion (no hard stop)
         }
 
     async def _generate_ai_summary(self, context: Dict) -> str:

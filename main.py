@@ -107,6 +107,7 @@ async def analyze_problem(request: ProblemRequest):
             
             workflow = AgentWorkflow(db_client)
             all_responses = {}
+            final_kernel_decision = None  # Track final kernel decision
             
             async for update in workflow.process_problem_stream(request.problem):
                 # Track current agent from updates and update stop history if stopped
@@ -122,21 +123,30 @@ async def analyze_problem(request: ProblemRequest):
                         if kernel_stop_history and kernel_stop_history[-1].get("action") == "stop":
                             kernel_stop_history[-1]["stopped_agent"] = update.get("stopped_agent")
                 
+                # Track final kernel decision from updates
+                if "kernel_decision" in update and update["kernel_decision"] is not None:
+                    final_kernel_decision = update["kernel_decision"]
+                
                 # Collect all responses for final save
                 if update.get("status") == "complete" and "response" in update:
                     all_responses[update["agent"]] = update["response"]
                 
                 # Stream the update immediately - each agent completes before next starts
                 update_json = json.dumps(update)
-                print(f"Streaming update: agent={update.get('agent')}, status={update.get('status')}")
+                print(f"Streaming update: agent={update.get('agent')}, status={update.get('status')}, kernel_decision={update.get('kernel_decision')}")
                 yield f"data: {update_json}\n\n"
+            
+            # Determine final kernel decision if not set (defaults to "N" if completed successfully)
+            if final_kernel_decision is None:
+                final_kernel_decision = "N"  # N = Normal completion (no hard stop occurred)
             
             # Save to database
             result = {
                 "problem": request.problem,
                 "responses": all_responses,
                 "final_insights": all_responses.get("final", ""),
-                "status": "completed",
+                "status": "completed" if final_kernel_decision == "N" else "stopped",
+                "kernel_decision": final_kernel_decision,  # N = Normal, L = Limited/Stopped
                 "created_at": datetime.now(timezone.utc).isoformat()
             }
             db_client.save_analysis(result)
@@ -145,7 +155,8 @@ async def analyze_problem(request: ProblemRequest):
             error_update = {
                 "agent": "error",
                 "status": "error",
-                "message": str(e)
+                "message": str(e),
+                "kernel_decision": None  # Error state
             }
             yield f"data: {json.dumps(error_update)}\n\n"
     
